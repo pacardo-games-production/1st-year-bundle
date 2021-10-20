@@ -1,14 +1,18 @@
 using System;
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Assertions;
 
 public class Movement : MonoBehaviour
 {
-    [SerializeField] private Vector2 maxVelocity = new Vector2(5, 5);
+    [SerializeField] private float maxSpeed = 10;
+    [SerializeField] private float forceCoefficient = 1.3f;
+    [SerializeField] private float maxSpeedCoefficient = 1.3f;
+    [SerializeField] private float revSpeed = 3;
     private Rigidbody2D rb2d;
-    private float moveX = 0;
+    private Vector2 moveDirection = new Vector2(0, 1);
+
+    private float thrustInput = 0;
+    private float rotationInput;
 
     private void Awake()
     {
@@ -16,35 +20,45 @@ public class Movement : MonoBehaviour
         Assert.IsNotNull(rb2d);
     }
 
-    void Update()
+    private void Update()
     {
-        moveX = Input.GetAxis("Horizontal");
+        rotationInput = Input.GetAxis("Horizontal");
+        thrustInput = Input.GetAxis("Vertical");
+    }
+
+    private void OnDrawGizmos()
+    {
+        Vector3 from = transform.position;
+        Vector3 to = (Vector2)from + moveDirection;
+        Gizmos.DrawLine(from, to);
     }
 
     private void FixedUpdate()
     {
-        if (moveX > 0)
-        {
-            rb2d.AddForce(new Vector2(1f, 0), ForceMode2D.Impulse);
-        }
-        else if (moveX < 0)
-        {
-            rb2d.AddForce(new Vector2(-1f, 0), ForceMode2D.Impulse);
-        }
+        MovementHandling();
+    }
 
-
-        var objectVelocity = rb2d.velocity;
-
-        if (objectVelocity.x > maxVelocity.x)
+    private void MovementHandling()
+    {
+        if (rotationInput > 0 || rotationInput < 0)
         {
-            objectVelocity.x = maxVelocity.x;
+            rb2d.MoveRotation(rb2d.rotation + (-revSpeed) * rotationInput * Time.fixedDeltaTime);
+            moveDirection.x = Mathf.Cos(rb2d.rotation * Mathf.Deg2Rad);
+            moveDirection.y = Mathf.Sin(rb2d.rotation * Mathf.Deg2Rad);
         }
 
-        if (objectVelocity.x < -maxVelocity.x)
+
+        if (thrustInput > 0 || thrustInput < 0)
         {
-            objectVelocity.x = -maxVelocity.x;
+            rb2d.AddForce(moveDirection * forceCoefficient * thrustInput, ForceMode2D.Force);
         }
 
-        rb2d.velocity = objectVelocity;
+        // max velocity limitation
+        var exceedingSpeedLimit = rb2d.velocity.magnitude - maxSpeed;
+        // Debug.Log(rb2d.velocity.magnitude.ToString());
+        if (exceedingSpeedLimit > 0)
+        {
+            rb2d.AddForce(-rb2d.velocity * exceedingSpeedLimit * maxSpeedCoefficient, ForceMode2D.Force);
+        }
     }
 }
