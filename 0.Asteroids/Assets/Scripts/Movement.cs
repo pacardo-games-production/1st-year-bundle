@@ -1,64 +1,60 @@
-using System;
 using UnityEngine;
 using UnityEngine.Assertions;
 
 public class Movement : MonoBehaviour
 {
-    [SerializeField] private float maxSpeed = 10;
-    [SerializeField] private float forceCoefficient = 1.3f;
-    [SerializeField] private float maxSpeedCoefficient = 1.3f;
-    [SerializeField] private float revSpeed = 3;
-    private Rigidbody2D rb2d;
-    private Vector2 moveDirection = new Vector2(0, 1);
-
-    private float thrustInput = 0;
+    private readonly float forwardForce = 2f;
+    private readonly float rotationVelocity = -300f;
+    private Rigidbody2D body;
+    private bool forwardInput;
+    private Vector2 moveDirection = new(0, 1);
     private float rotationInput;
+
 
     private void Awake()
     {
-        rb2d = GetComponent<Rigidbody2D>();
-        Assert.IsNotNull(rb2d);
+        body = GetComponent<Rigidbody2D>();
+        Assert.IsNotNull(body);
     }
 
     private void Update()
     {
         rotationInput = Input.GetAxis("Horizontal");
-        thrustInput = Input.GetAxis("Vertical");
-    }
-
-    private void OnDrawGizmos()
-    {
-        Vector3 from = transform.position;
-        Vector3 to = (Vector2)from + moveDirection;
-        Gizmos.DrawLine(from, to);
+        forwardInput = Input.GetButton("Vertical");
     }
 
     private void FixedUpdate()
     {
-        MovementHandling();
+        body.velocity = ForwardVelocity() + RightVelocity();
+        if (forwardInput) body.AddForce(moveDirection * forwardForce, ForceMode2D.Impulse);
+
+        // TODO: calc max velocity magnitude 
+        if (body.velocity.magnitude > 10f) body.velocity = body.velocity.normalized * 10f;
+
+
+        body.angularVelocity = rotationInput * rotationVelocity;
+
+        moveDirection.x = Mathf.Cos(body.rotation * Mathf.Deg2Rad);
+        moveDirection.y = Mathf.Sin(body.rotation * Mathf.Deg2Rad);
     }
 
-    private void MovementHandling()
+    private void OnDrawGizmos()
     {
-        if (rotationInput > 0 || rotationInput < 0)
-        {
-            rb2d.MoveRotation(rb2d.rotation + (-revSpeed) * rotationInput * Time.fixedDeltaTime);
-            moveDirection.x = Mathf.Cos(rb2d.rotation * Mathf.Deg2Rad);
-            moveDirection.y = Mathf.Sin(rb2d.rotation * Mathf.Deg2Rad);
-        }
+        Vector2 from = transform.position;
+        Vector3 to = from + moveDirection;
+        Gizmos.DrawLine(from, to);
+    }
 
 
-        if (thrustInput > 0 || thrustInput < 0)
-        {
-            rb2d.AddForce(moveDirection * forceCoefficient * thrustInput, ForceMode2D.Force);
-        }
+    private Vector2 ForwardVelocity()
+    {
+        var up = transform.up;
+        return up * Vector2.Dot(body.velocity, up);
+    }
 
-        // max velocity limitation
-        var exceedingSpeedLimit = rb2d.velocity.magnitude - maxSpeed;
-        // Debug.Log(rb2d.velocity.magnitude.ToString());
-        if (exceedingSpeedLimit > 0)
-        {
-            rb2d.AddForce(-rb2d.velocity * exceedingSpeedLimit * maxSpeedCoefficient, ForceMode2D.Force);
-        }
+    private Vector2 RightVelocity()
+    {
+        var right = transform.right;
+        return right * Vector2.Dot(body.velocity, right);
     }
 }
